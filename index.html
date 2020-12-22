@@ -16,7 +16,7 @@
             from browser import document
 
             def show_text(e):
-                document['output'].textContent = e.target.value.capitalize();
+                document['output'].textContent = e.target.value.capitalize() +  ' and 10 beatles';
 
             document['text'].bind('input', show_text)
         </script>

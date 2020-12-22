@@ -1,217 +1,226 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brython Examples</title>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.8.8/brython.js" integrity="sha256-rA89wPrTJJQFWJaZveKW8jpdmC3t5F9rRkPyBjz8G04=" crossorigin="anonymous"></script>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.8.8/brython_stdlib.js" integrity="sha256-Gnrw9tIjrsXcZSCh/wos5Jrpn0bNVNFJuNJI9d71TDs=" crossorigin="anonymous"></script>
+<meta charset="utf-8">
+<script type="text/javascript" src="brython.js"></script>
+<script type="text/javascript" src="brython_stdlib.js"></script>
 </head>
-<body onload="brython()">
-    <input type="text" id="text" placeholder="Enter anything in mind">
-    <span id="output"></span>
-        <script type="text/python" id="script1">
-            from browser import document
-            import os
-            import sys
-            import json
-            from pathlib import Path
-            from distutils.util import strtobool
+
+<body onload="brython(1)">
+  <br>
+  <textarea style="height:400px;width:1200px" type="text" id="text" placeholder="Enter your codemeta dictionary"></textarea>
+</br>
+</br>
+  <textarea style="height:400px;width:1200px" type="text" id="output"></textarea>
+      <script type="text/python" id="script1">
+          from browser import document
+          import os
+          import sys
+          import json
+          from pathlib import Path
 
 
-            def parse_person_schema_property(person_property, contributor_field):
-                """
-                Parse the Person Schema property correctly
+          def parse_person_schema_property(person_property, contributor_field):
+              """
+              Parse the Person Schema property correctly
 
-                Parameters:
-                --------
-                person_property: dict
-                    dictionary codemeta key with the a list or a single Person property item.
-                contributor_field : str
-                    contributor type {'editor', 'producer', 'sponsor'} or publisher, although the last one can only happen if
-                    `upload_type` is publication (NOT SUPPORTED - contact E. Garcia by email).
+              Parameters:
+              --------
+              person_property: dict
+                  dictionary codemeta key with the a list or a single Person property item.
+              contributor_field : str
+                  contributor type {'editor', 'producer', 'sponsor'} or publisher, although the last one can only happen if
+                  `upload_type` is publication (NOT SUPPORTED - contact E. Garcia by email).
 
-                Returns:
-                --------
-                zenodo_person: dict
-                    dictionary with the correct zenodo syntax for all {author, contributor, maintainer}.
-                """
-                zenodo_person = {}
-                special_contributor_cases = ['editor', 'producer', 'publisher', 'provider', 'sponsor']
+              Returns:
+              --------
+              zenodo_person: dict
+                  dictionary with the correct zenodo syntax for all {author, contributor, maintainer}.
+              """
+              zenodo_person = {}
+              special_contributor_cases = ['editor', 'producer', 'publisher', 'provider', 'sponsor']
 
-                name = person_property['familyName']
-                if 'givenName' in person_property:
-                    name += f', {person_property["givenName"]}'
-                zenodo_person['name'] = name
+              name = person_property['familyName']
+              if 'givenName' in person_property:
+                  name += f', {person_property["givenName"]}'
+              zenodo_person['name'] = name
 
-                if "@id" in person_property:
-                    if 'orcid.org/' in person_property["@id"]:   # "https://orcid.org/0000-0002-5686-2078" format not accepted
-                        zenodo_person['orcid'] = person_property["@id"].split('orcid.org/')[-1]
-                    else:
-                        zenodo_person['orcid'] = person_property["@id"]
+              if "@id" in person_property:
+                  if 'orcid.org/' in person_property["@id"]:   # "https://orcid.org/0000-0002-5686-2078" format not accepted
+                      zenodo_person['orcid'] = person_property["@id"].split('orcid.org/')[-1]
+                  else:
+                      zenodo_person['orcid'] = person_property["@id"]
 
-                if "affiliation" in person_property:
-                    zenodo_person['affiliation'] = person_property['affiliation']['name']
+              if "affiliation" in person_property:
+                  zenodo_person['affiliation'] = person_property['affiliation']['name']
 
-                # Parse correctly the contributors
-                if contributor_field in special_contributor_cases:
+              # Parse correctly the contributors
+              if contributor_field in special_contributor_cases:
 
-                    if contributor_field is 'provider' or contributor_field is 'publisher':
-                        zenodo_person['type'] = 'Other'
-                    else:
-                        try:
-                            zenodo_person['type'] = person_property["type"]
-                        except:
-                            zenodo_person['type'] = contributor_field
+                  if contributor_field is 'provider' or contributor_field is 'publisher':
+                      zenodo_person['type'] = 'Other'
+                  else:
+                      try:
+                          zenodo_person['type'] = person_property["type"]
+                      except:
+                          zenodo_person['type'] = contributor_field
 
-                return zenodo_person
-
-
-            def add_author_metadata(zenodo_file, codemt_file, field):
-                """
-                Aux function to parse correctly all the authors, contributors and maintainers that can be found at the
-                codemeta.json file
-
-                zenodo_file: dict
-                    metadata dictionary with the zenodo syntax
-                codem_file: list or dict
-                    metadata dictionary key field with the codemeta syntax
-                field: str
-                    codemeta key field specifying creator {author, contributor, maintainer, creator}, or
-                    contributors {editor, sponsor, producer, project manager...}
-
-                """
-                full_contacts = {}
-
-                creators_fields = ['author', 'creator', 'maintainer', 'contributor']
-                contributors_fields = ['editor', 'producer', 'publisher', 'provider', 'sponsor']
-
-                # First create the full contact agenda by field
-                if type(codemt_file[field]) is list:
-
-                    for person_property in codemt_file[field]:
-                        zenodo_person = parse_person_schema_property(person_property, field)
-                        # 'name' is the only key that MUST be contained in a person_property at least
-                        full_contacts[zenodo_person['name']] = zenodo_person
-
-                else:
-                    zenodo_person = parse_person_schema_property(codemt_file[field], field)
-                    full_contacts[zenodo_person['name']] = zenodo_person
-
-                # then save each person by field and avoid duplicates
-                for person in full_contacts:
-
-                    if field in creators_fields:
-
-                        # Contributors and maintainers in the same zenodo key
-                        if 'creators' not in zenodo_file:
-                            zenodo_file['creators'] = []
-                        if person not in zenodo_file['creators']:
-                            zenodo_file['creators'].append(full_contacts[person])
-                        else:
-                            pass  # avoid duplicates
-
-                    elif field in contributors_fields:
-
-                        if 'contributors' not in zenodo_file:
-                            zenodo_file['contributors'] = []
-                        if person not in zenodo_file['contributors']:
-                            zenodo_file['contributors'].append(full_contacts[person])
-                        else:
-                            pass  # avoid duplicates
+              return zenodo_person
 
 
-            def find_matching_metadata(codemeta_json):
-                """
-                Please note that the following fields are ASSUMED. If they are not correct, change them, or contact us otherwise.
-                    "access_right": "open"
-                    "language": "eng"
+          def add_author_metadata(zenodo_file, codemt_file, field):
+              """
+              Aux function to parse correctly all the authors, contributors and maintainers that can be found at the
+              codemeta.json file
 
-                param codemeta_json: dict
-                    already parsed dictionary containing the metadata of the codemeta.json file
+              zenodo_file: dict
+                  metadata dictionary with the zenodo syntax
+              codem_file: list or dict
+                  metadata dictionary key field with the codemeta syntax
+              field: str
+                  codemeta key field specifying creator {author, contributor, maintainer, creator}, or
+                  contributors {editor, sponsor, producer, project manager...}
 
-                Returns:
-                --------
-                metadata_zenodo : dict
-                    dictionary cotaining the metadata information found at the codemeta.json file but written using the Zenodo
-                    syntax.
-                """
-                person_filed = ['author', 'creator', 'maintainer', 'contributor', 'editor', 'producer', 'publisher',
-                                'provider', 'sponsor']
+              """
+              full_contacts = {}
 
-                metadata_zenodo = {'language': 'eng',
-                                   'access_right': 'open'}
+              creators_fields = ['author', 'creator', 'maintainer', 'contributor']
+              contributors_fields = ['editor', 'producer', 'publisher', 'provider', 'sponsor']
 
-                if codemeta_json["@type"] == "SoftwareSourceCode":
-                    metadata_zenodo['upload_type'] = 'software'
-                else:
-                    metadata_zenodo['upload_type'] = ''
-                    print("\nCould not identify the type of schema in the `codemeta.json file`.\n"
-                          "Thus the 'upload_type' within the `.zenodo.json` file was left EMPTY.\n"
-                          "Please fill it up by yourself - otherwise zenodo will NOT be able to publish your entry.\n")
+              # First create the full contact agenda by field
+              if type(codemt_file[field]) is list:
 
-                if 'name' in codemeta_json:
-                    metadata_zenodo['title'] = codemeta_json['name']
-                if 'description' in codemeta_json:
-                    metadata_zenodo['description'] = codemeta_json['description']
+                  for person_property in codemt_file[field]:
+                      zenodo_person = parse_person_schema_property(person_property, field)
+                      # 'name' is the only key that MUST be contained in a person_property at least
+                      full_contacts[zenodo_person['name']] = zenodo_person
 
-                if 'softwareVersion' in codemeta_json and 'version' not in codemeta_json:
-                    metadata_zenodo['version'] = codemeta_json['softwareVersion']
-                elif 'version' in codemeta_json and 'softwareVersion' not in codemeta_json:
-                    metadata_zenodo['version'] = codemeta_json['version']
-                else:
-                    metadata_zenodo['version'] = codemeta_json['version']
+              else:
+                  zenodo_person = parse_person_schema_property(codemt_file[field], field)
+                  full_contacts[zenodo_person['name']] = zenodo_person
 
-                if 'keywords' in codemeta_json:
-                    if type(codemeta_json['keywords']) == list:
-                        metadata_zenodo['keywords'] = codemeta_json['keywords']
-                    else:
-                        metadata_zenodo['keywords'] = [codemeta_json['keywords']]
+              # then save each person by field and avoid duplicates
+              for person in full_contacts:
 
-                if 'license' in codemeta_json:
-                    metadata_zenodo['license'] = codemeta_json['license'].split('/')[-1]  # TODO to be improved
-                if 'releaseNotes' in codemeta_json:
-                    metadata_zenodo['notes'] = "Release Notes: " + codemeta_json['releaseNotes']
-                if 'citation' in codemeta_json:
-                    metadata_zenodo['references'] = codemeta_json['citation']
-                if 'datePublished' in codemeta_json:
-                    metadata_zenodo['publication_date'] = codemeta_json['datePublished']
+                  if field in creators_fields:
 
-                for person in person_filed:
-                    if person in codemeta_json:
-                        add_author_metadata(metadata_zenodo, codemeta_json, field=person)
+                      # Contributors and maintainers in the same zenodo key
+                      if 'creators' not in zenodo_file:
+                          zenodo_file['creators'] = []
+                      if person not in zenodo_file['creators']:
+                          zenodo_file['creators'].append(full_contacts[person])
+                      else:
+                          pass  # avoid duplicates
 
-                return metadata_zenodo
+                  elif field in contributors_fields:
+
+                      if 'contributors' not in zenodo_file:
+                          zenodo_file['contributors'] = []
+                      if person not in zenodo_file['contributors']:
+                          zenodo_file['contributors'].append(full_contacts[person])
+                      else:
+                          pass  # avoid duplicates
 
 
-            def add_compulsory_escape_metadata(json_file):
-                """
-                Add compulsory information to the .zenodo.json file:
-                 * zenodo community : ESCAPE2020
-                 * ESCAPE grant ID (zenodo syntax)
+          def find_matching_metadata(codemeta_json):
+              """
+              Please note that the following fields are ASSUMED. If they are not correct, change them, or contact us otherwise.
+                  "access_right": "open"
+                  "language": "eng"
 
-                param json_file: dict
-                    dictionary containing the .zenodo.json metadata information
-                """
-                json_file["communities"] = [{"identifier": "escape2020"}]
-                json_file["grants"] = [{"id": "10.13039/501100000780::824064"}]
+              param codemeta_json: dict
+                  already parsed dictionary containing the metadata of the codemeta.json file
+
+              Returns:
+              --------
+              metadata_zenodo : dict
+                  dictionary cotaining the metadata information found at the codemeta.json file but written using the Zenodo
+                  syntax.
+              """
+              person_filed = ['author', 'creator', 'maintainer', 'contributor', 'editor', 'producer', 'publisher',
+                              'provider', 'sponsor']
+
+              metadata_zenodo = {'language': 'eng',
+                                 'access_right': 'open'}
+
+              if codemeta_json["@type"] == "SoftwareSourceCode":
+                  metadata_zenodo['upload_type'] = 'software'
+              else:
+                  metadata_zenodo['upload_type'] = ''
+                  print("\nCould not identify the type of schema in the `codemeta.json file`.\n"
+                        "Thus the 'upload_type' within the `.zenodo.json` file was left EMPTY.\n"
+                        "Please fill it up by yourself - otherwise zenodo will NOT be able to publish your entry.\n")
+
+              if 'name' in codemeta_json:
+                  metadata_zenodo['title'] = codemeta_json['name']
+              if 'description' in codemeta_json:
+                  metadata_zenodo['description'] = codemeta_json['description']
+
+              if 'softwareVersion' in codemeta_json and 'version' not in codemeta_json:
+                  metadata_zenodo['version'] = codemeta_json['softwareVersion']
+              elif 'version' in codemeta_json and 'softwareVersion' not in codemeta_json:
+                  metadata_zenodo['version'] = codemeta_json['version']
+              else:
+                  metadata_zenodo['version'] = codemeta_json['version']
+
+              if 'keywords' in codemeta_json:
+                  if type(codemeta_json['keywords']) == list:
+                      metadata_zenodo['keywords'] = codemeta_json['keywords']
+                  else:
+                      metadata_zenodo['keywords'] = [codemeta_json['keywords']]
+
+              if 'license' in codemeta_json:
+                  metadata_zenodo['license'] = codemeta_json['license'].split('/')[-1]  # TODO to be improved
+              if 'releaseNotes' in codemeta_json:
+                  metadata_zenodo['notes'] = "Release Notes: " + codemeta_json['releaseNotes']
+              if 'citation' in codemeta_json:
+                  metadata_zenodo['references'] = codemeta_json['citation']
+              if 'datePublished' in codemeta_json:
+                  metadata_zenodo['publication_date'] = codemeta_json['datePublished']
+
+              for person in person_filed:
+                  if person in codemeta_json:
+                      add_author_metadata(metadata_zenodo, codemeta_json, field=person)
+
+              return metadata_zenodo
 
 
-            def codemeta2zenodo(codemeta):
-                // metadata_zenodo = find_matching_metadata(codemeta)
-                // add_compulsory_escape_metadata(metadata_zenodo)
-                // data = {'metadata': metadata_zenodo}
-                data = "toto"
-                document['output'].textContent = f"Converted to zenodo:\n\n{data}"
+          def add_compulsory_escape_metadata(json_file):
+              """
+              Add compulsory information to the .zenodo.json file:
+               * zenodo community : ESCAPE2020
+               * ESCAPE grant ID (zenodo syntax)
+
+              param json_file: dict
+                  dictionary containing the .zenodo.json metadata information
+              """
+              json_file["communities"] = [{"identifier": "escape2020"}]
+              json_file["grants"] = [{"id": "10.13039/501100000780::824064"}]
 
 
+          def codemeta2zenodo(codemeta):
+              metadata_zenodo = find_matching_metadata(codemeta)
+              add_compulsory_escape_metadata(metadata_zenodo)
+              data = {'metadata': metadata_zenodo}
+              return data
 
-            def show_text(e):
-                document['output'].textContent = e.target.value.capitalize() +  ' and 10 beatles';
+          def readentry(dict_string):
+              return json.loads(dict_string)
 
-            document['text'].bind('input', show_text)
-        </script>
+          def show_text(e):
+              try:
+                  data_str = e.target.value
+                  data = readentry(data_str)
+                  msg = json.dumps(codemeta2zenodo(data))
+              except:
+                  msg = f"Something went wrong"
+
+              document['output'].textContent = msg
+
+          document['text'].bind('input', show_text)
+      </script>
+
 </body>
+
 </html>

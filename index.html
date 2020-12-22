@@ -200,9 +200,9 @@
 
 
             def codemeta2zenodo(codemeta):
-                metadata_zenodo = find_matching_metadata(codemeta)
-                add_compulsory_escape_metadata(metadata_zenodo)
-                data = {'metadata': metadata_zenodo}
+                # metadata_zenodo = find_matching_metadata(codemeta)
+                # add_compulsory_escape_metadata(metadata_zenodo)
+                # data = {'metadata': metadata_zenodo}
                 
                 document['output'].textContent = f"Converted to zenodo:\n\n{data}"
                 

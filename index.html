@@ -203,7 +203,10 @@
                 metadata_zenodo = find_matching_metadata(codemeta)
                 add_compulsory_escape_metadata(metadata_zenodo)
                 data = {'metadata': metadata_zenodo}
-                return data
+                
+                document['output'].textContent = data
+                
+                
                 
             def show_text(e):
                 document['output'].textContent = e.target.value.capitalize() +  ' and 10 beatles';

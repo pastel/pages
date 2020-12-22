@@ -200,7 +200,7 @@
 
 
             def codemeta2zenodo(codemeta):
-                metadata_zenodo = find_matching_metadata(codemeta_json)
+                metadata_zenodo = find_matching_metadata(codemeta)
                 add_compulsory_escape_metadata(metadata_zenodo)
                 data = {'metadata': metadata_zenodo}
                 return data

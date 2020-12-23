@@ -11,8 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/brython/3.8.8/brython_stdlib.js" integrity="sha256-Gnrw9tIjrsXcZSCh/wos5Jrpn0bNVNFJuNJI9d71TDs=" crossorigin="anonymous"></script>
 </head>
 <body onload="brython()">
-    <textarea style="height:400px;width:1200px" type="text" id="text" placeholder="Enter anything in mind"></textarea>
+    <textarea style="height:400px;width:1200px" type="text" id="text" placeholder="Enter your codemeta here"></textarea>
     </br>
+    Here is the corresponding .zenodo.json:
     </br>
     <textarea style="height:400px;width:1200px" id="output"></textarea>
         <script type="text/python" id="script1">
@@ -216,7 +217,7 @@
                     msg = f"Something went wrong"
 
                 document['output'].textContent = msg
-                
+
             def test_func(e):
                 document['output'].textContent = "The test function is working"
 
